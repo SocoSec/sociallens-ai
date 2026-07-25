@@ -5,13 +5,14 @@ export default function BillingPage() {
     <main className="container page">
       <h1>Billing</h1>
       <p>
-        You're on the <strong>Free</strong> plan. Billing and subscriptions
-        aren't enabled in this build yet.
+        You're on the <strong>Free</strong> plan: 5 analyses per day with a
+        signed-in account, saved history, and sentiment tracking over time.
       </p>
       <p>
-        To enable them, connect Stripe: create products for each plan, add a
-        checkout API route, and store subscription state per user. The README
-        includes a step-by-step outline.
+        Paid plans and payments aren't enabled in this build yet. To enable
+        them, connect Stripe: create products for each plan, add a checkout
+        API route, and store subscription state per user. The README includes
+        a step-by-step outline.
       </p>
     </main>
   );

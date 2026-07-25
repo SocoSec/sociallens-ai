@@ -1,3 +1,7 @@
+import { auth } from "@/auth";
+import { dbAvailable, saveAnalysis, countAnalysesToday } from "@/lib/db";
+import { FREE_DAILY_LIMIT } from "@/lib/limits";
+
 export const maxDuration = 60; // allow up to 60s on Vercel
 
 const MAX_COMMENTS = 1000;
@@ -18,6 +22,22 @@ export async function POST(req) {
     comments = body.comments;
   } catch {
     return Response.json({ error: "Invalid request body." }, { status: 400 });
+  }
+
+  const session = await auth().catch(() => null);
+  const userId = session?.user?.id ? Number(session.user.id) : null;
+  if (userId && dbAvailable()) {
+    try {
+      const used = await countAnalysesToday(userId);
+      if (used >= FREE_DAILY_LIMIT) {
+        return Response.json(
+          { error: `You've used all ${FREE_DAILY_LIMIT} free analyses for today. Come back tomorrow!` },
+          { status: 429 }
+        );
+      }
+    } catch {
+      /* if the check fails, allow the analysis */
+    }
   }
 
   if (!Array.isArray(comments) || comments.length === 0) {
@@ -101,6 +121,14 @@ ${sample.join("\n")}`;
       neutral: Math.round(((s.neutral || 0) / total) * 100),
       negative: Math.round(((s.negative || 0) / total) * 100),
     };
+
+    if (userId && dbAvailable()) {
+      try {
+        await saveAnalysis(userId, comments.length, parsed);
+      } catch {
+        /* saving history is best-effort */
+      }
+    }
 
     return Response.json(parsed);
   } catch (e) {

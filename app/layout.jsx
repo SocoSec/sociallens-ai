@@ -1,6 +1,7 @@
 import "./globals.css";
 import Link from "next/link";
-import AuthButtons from "@/components/AuthButtons";
+import Providers from "@/components/Providers";
+import HeaderAuth from "@/components/HeaderAuth";
 
 export const metadata = {
   title: "SocialLens AI — Comment Analysis",
@@ -24,6 +25,7 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body>
+        <Providers>
         <header className="site-header">
           <div className="container">
             <Link href="/" className="brand">
@@ -36,7 +38,7 @@ export default function RootLayout({ children }) {
                 <Link href="/pricing">Pricing</Link>
                 <Link href="/billing">Billing</Link>
               </nav>
-              <AuthButtons />
+              <HeaderAuth />
             </div>
           </div>
         </header>
@@ -53,6 +55,7 @@ export default function RootLayout({ children }) {
             </nav>
           </div>
         </footer>
+        </Providers>
       </body>
     </html>
   );

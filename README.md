@@ -71,7 +71,7 @@ app/
 
 **Instagram** — Instagram has no public comments API; you must use the Meta Graph API with an Instagram Professional account linked to a Facebook Page, and your app needs `instagram_basic` + `instagram_manage_comments` permissions (App Review required). Once approved, add an `app/api/instagram/route.js` mirroring the Facebook route.
 
-**Sign-in** — add [NextAuth.js / Auth.js](https://authjs.dev) with a Google provider; gate "Sentiment Over Time" and server-side history behind a session.
+**Sign-in** — DONE in this build: Auth.js v5 with email+password and optional Google sign-in, Neon Postgres for users + per-account analysis history, a 5/day free quota, and a sentiment-over-time chart for signed-in users. Required env vars: `DATABASE_URL` (Neon), `AUTH_SECRET`, and optionally `AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET` for the Google button.
 
 **Billing (Stripe)** — create Products/Prices for the Creator and Team plans, add an `/api/checkout` route that creates a Checkout Session, and a webhook route to record subscription status. Wire the Pricing page buttons to `/api/checkout`.
 

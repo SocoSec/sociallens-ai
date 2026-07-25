@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState } from "react";
 import Papa from "papaparse";
+import SentimentOverTime from "@/components/SentimentOverTime";
 
 const TABS = [
   { id: "paste", label: "Paste comments" },
@@ -83,7 +84,7 @@ export default function Home() {
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState("");
   const [analysis, setAnalysis] = useState(null);
-  const [lockOpen, setLockOpen] = useState(false);
+  const [historyVersion, setHistoryVersion] = useState(0);
   const fileRef = useRef(null);
   const resultsRef = useRef(null);
 
@@ -157,6 +158,8 @@ export default function Home() {
       if (!res.ok) throw new Error(data.error || "Analysis failed.");
       setAnalysis(data);
       saveToHistory(toAnalyze.length, data);
+      setHistoryVersion((v) => v + 1);
+      window.dispatchEvent(new Event("analysis-done"));
       requestAnimationFrame(() =>
         resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
       );
@@ -462,13 +465,7 @@ export default function Home() {
           </ResultCard>
 
           <ResultCard title="Sentiment Over Time">
-            <div className="locked-note">
-              Sentiment tracking over time is available for signed-in users.
-              <br />
-              <button className="lock-cta" onClick={() => setLockOpen(true)}>
-                Sign in to unlock
-              </button>
-            </div>
+            <SentimentOverTime version={historyVersion} />
           </ResultCard>
 
           <ResultCard title="Topics">
@@ -520,27 +517,6 @@ export default function Home() {
         </div>
       </section>
 
-      {lockOpen && (
-        <div
-          className="modal-backdrop"
-          onClick={() => setLockOpen(false)}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Sign in"
-        >
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Accounts are coming soon</h2>
-            <p>
-              Sentiment tracking over time needs saved history, which arrives
-              with accounts. Everything else works right now without signing
-              in.
-            </p>
-            <button className="btn-grad" onClick={() => setLockOpen(false)}>
-              Got it
-            </button>
-          </div>
-        </div>
-      )}
     </main>
   );
 }
