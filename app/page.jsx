@@ -34,10 +34,22 @@ const SAMPLE_COMMENTS = [
   "When is the next livestream?",
 ];
 
+function detectPlatform(text) {
+  try {
+    const u = new URL(text.trim());
+    const host = u.hostname.replace(/^www\./, "");
+    if (host === "youtu.be" || host.endsWith("youtube.com")) return "youtube";
+    if (host.endsWith("facebook.com") || host === "fb.watch") return "facebook";
+    if (host.endsWith("instagram.com")) return "instagram";
+    return "unknown-url";
+  } catch {
+    return "not-a-url";
+  }
+}
+
 function extractCommentsFromCsv(results) {
   const rows = results.data.filter((r) => r && r.length);
   if (!rows.length) return [];
-  // If a header row exists, prefer a column named like "comment"/"text"/"message".
   const header = rows[0].map((h) => String(h || "").toLowerCase().trim());
   const nameHit = header.findIndex((h) =>
     ["comment", "comments", "text", "message", "body", "content"].includes(h)
@@ -48,7 +60,6 @@ function extractCommentsFromCsv(results) {
       .map((r) => String(r[nameHit] || "").trim())
       .filter(Boolean);
   }
-  // Otherwise take the longest text column of every row.
   return rows
     .map((r) => {
       const cells = r.map((c) => String(c || "").trim());
@@ -58,6 +69,7 @@ function extractCommentsFromCsv(results) {
 }
 
 export default function Home() {
+  const [heroUrl, setHeroUrl] = useState("");
   const [tab, setTab] = useState("paste");
   const [rawText, setRawText] = useState("");
   const [csvComments, setCsvComments] = useState([]);
@@ -67,16 +79,18 @@ export default function Home() {
   const [url, setUrl] = useState("");
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingMsg, setLoadingMsg] = useState("");
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState("");
   const [analysis, setAnalysis] = useState(null);
+  const [lockOpen, setLockOpen] = useState(false);
   const fileRef = useRef(null);
   const resultsRef = useRef(null);
 
   const comments = useMemo(() => {
     if (tab === "csv") return csvComments;
-    if (tab === "youtube" || tab === "facebook") return fetchedComments;
-    if (tab === "instagram") return fetchedComments;
+    if (tab === "youtube" || tab === "facebook" || tab === "instagram")
+      return fetchedComments;
     return rawText
       .split("\n")
       .map((l) => l.trim())
@@ -91,22 +105,27 @@ export default function Home() {
       complete: (results) => {
         const extracted = extractCommentsFromCsv(results);
         setCsvComments(extracted);
-        setError(
-          extracted.length ? "" : "No comment text found in that CSV."
-        );
+        setError(extracted.length ? "" : "No comment text found in that CSV.");
       },
       error: () => setError("Could not read that file. Is it a valid CSV?"),
     });
   }, []);
+
+  async function fetchComments(platform, link) {
+    const res = await fetch(
+      `/api/${platform}?url=${encodeURIComponent(link)}`
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Could not fetch comments.");
+    return data;
+  }
 
   async function fetchFromPlatform(platform) {
     setError("");
     setFetching(true);
     setFetchedComments([]);
     try {
-      const res = await fetch(`/api/${platform}?url=${encodeURIComponent(url)}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Could not fetch comments.");
+      const data = await fetchComments(platform, url);
       setFetchedComments(data.comments);
       setFetchedLabel(data.title || url);
     } catch (e) {
@@ -119,11 +138,14 @@ export default function Home() {
   async function runAnalysis(overrideComments) {
     const toAnalyze = overrideComments || comments;
     if (!toAnalyze.length) {
-      setError("Add some comments first — paste text, upload a CSV, or fetch from a link.");
+      setError(
+        "Add some comments first — paste a link above, or use the panel below."
+      );
       return;
     }
     setError("");
     setLoading(true);
+    setLoadingMsg(`Reading ${toAnalyze.length} comments and building your report…`);
     setAnalysis(null);
     try {
       const res = await fetch("/api/analyze", {
@@ -141,6 +163,52 @@ export default function Home() {
     } catch (e) {
       setError(e.message);
     } finally {
+      setLoading(false);
+    }
+  }
+
+  async function analyzeFromHero() {
+    const link = heroUrl.trim();
+    if (!link) {
+      setError("Paste a YouTube or Facebook link first — or use the panel below for raw comments and CSVs.");
+      return;
+    }
+    const platform = detectPlatform(link);
+    if (platform === "instagram") {
+      setTab("instagram");
+      setError(
+        "Instagram needs a connected professional account. Export your comments to CSV and use the Upload CSV tab below."
+      );
+      return;
+    }
+    if (platform === "not-a-url") {
+      setTab("paste");
+      setRawText(link);
+      setError(
+        "That doesn't look like a link, so I've placed it in the Paste comments tab below — add one comment per line and press Analyze."
+      );
+      return;
+    }
+    if (platform === "unknown-url") {
+      setError("That link isn't from YouTube or Facebook. Those are the two supported platforms for direct import.");
+      return;
+    }
+    setError("");
+    setLoading(true);
+    setLoadingMsg("Fetching comments…");
+    setAnalysis(null);
+    try {
+      setTab(platform);
+      setUrl(link);
+      const data = await fetchComments(platform, link);
+      setFetchedComments(data.comments);
+      setFetchedLabel(data.title || link);
+      setLoadingMsg(
+        `Reading ${data.comments.length} comments and building your report…`
+      );
+      await runAnalysis(data.comments);
+    } catch (e) {
+      setError(e.message);
       setLoading(false);
     }
   }
@@ -177,18 +245,45 @@ export default function Home() {
       <section className="hero">
         <div className="container">
           <span className="eyebrow">AI-powered comment intelligence</span>
-          <h1>Understand your comments in seconds</h1>
+          <h1>
+            Understand your comments <span className="grad-text">in seconds</span>
+          </h1>
           <p className="lede">
-            Paste a YouTube or Facebook link — or raw comments — and get an
-            instant summary, topics, sentiment, and keywords.
+            Paste a YouTube, Instagram, or Facebook link — or raw comments —
+            and get an instant summary, topics, sentiment, and keywords.
           </p>
-          <p className="lede">
+
+          <div className="smart-bar">
+            <input
+              placeholder="Paste a YouTube, Instagram, or Facebook link…"
+              value={heroUrl}
+              onChange={(e) => setHeroUrl(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && analyzeFromHero()}
+              aria-label="Link to analyze"
+            />
+            <button
+              className="btn-grad"
+              onClick={analyzeFromHero}
+              disabled={loading}
+            >
+              {loading ? "Working…" : "Analyze"}
+            </button>
+          </div>
+
+          <p className="sample-line">
             New here?{" "}
             <button className="sample-link" onClick={loadSample}>
               See a sample analysis
             </button>{" "}
             — no setup needed.
           </p>
+
+          <div className="chip-row">
+            <span className="chip">Summary</span>
+            <span className="chip">Topics</span>
+            <span className="chip">Sentiment</span>
+            <span className="chip">Keywords</span>
+          </div>
 
           <div className="card input-card">
             <div className="tabs" role="tablist" aria-label="Comment source">
@@ -255,7 +350,7 @@ export default function Home() {
 
             {tab === "youtube" && (
               <div>
-                <p style={{ marginTop: 0, color: "var(--ink-soft)", fontSize: "0.9rem" }}>
+                <p className="hint">
                   Paste a video link to import up to 1,000 comments.
                 </p>
                 <div className="input-row">
@@ -266,7 +361,7 @@ export default function Home() {
                     onChange={(e) => setUrl(e.target.value)}
                   />
                   <button
-                    className="btn btn-secondary"
+                    className="btn-secondary"
                     onClick={() => fetchFromPlatform("youtube")}
                     disabled={fetching || !url}
                   >
@@ -278,9 +373,9 @@ export default function Home() {
 
             {tab === "facebook" && (
               <div>
-                <p style={{ marginTop: 0, color: "var(--ink-soft)", fontSize: "0.9rem" }}>
+                <p className="hint">
                   Paste a public post, video, or reel link to import up to
-                  1,000 comments. Requires a Meta access token on the server.
+                  1,000 comments.
                 </p>
                 <div className="input-row">
                   <input
@@ -290,7 +385,7 @@ export default function Home() {
                     onChange={(e) => setUrl(e.target.value)}
                   />
                   <button
-                    className="btn btn-secondary"
+                    className="btn-secondary"
                     onClick={() => fetchFromPlatform("facebook")}
                     disabled={fetching || !url}
                   >
@@ -301,22 +396,24 @@ export default function Home() {
             )}
 
             {tab === "instagram" && (
-              <p style={{ margin: 0, color: "var(--ink-soft)", fontSize: "0.9rem" }}>
-                Instagram requires connecting a professional account through the
-                Meta API. In the meantime, export your comments to CSV (many
-                tools do this) and use the <strong>Upload CSV</strong> tab.
+              <p className="hint" style={{ margin: 0 }}>
+                Instagram requires connecting a professional account through
+                the Meta API. In the meantime, export your comments to CSV
+                (many tools do this) and use the <strong>Upload CSV</strong>{" "}
+                tab.
               </p>
             )}
 
             <div className="meta-row">
               <span className="count-chip">
                 <strong>{comments.length}</strong> comments detected
-                {fetchedLabel && (tab === "youtube" || tab === "facebook")
+                {fetchedLabel &&
+                (tab === "youtube" || tab === "facebook")
                   ? ` · ${fetchedLabel}`
                   : ""}
               </span>
               <button
-                className="btn btn-primary"
+                className="btn-grad"
                 onClick={() => runAnalysis()}
                 disabled={loading || comments.length === 0}
               >
@@ -325,11 +422,15 @@ export default function Home() {
             </div>
           </div>
 
-          {error && <div className="error-banner" role="alert">{error}</div>}
+          {error && (
+            <div className="error-banner" role="alert">
+              {error}
+            </div>
+          )}
           {loading && (
             <div className="loading-banner">
               <span className="spinner" aria-hidden="true" />
-              Reading {comments.length} comments and building your report…
+              {loadingMsg}
             </div>
           )}
         </div>
@@ -358,6 +459,16 @@ export default function Home() {
             ) : (
               <Empty />
             )}
+          </ResultCard>
+
+          <ResultCard title="Sentiment Over Time">
+            <div className="locked-note">
+              Sentiment tracking over time is available for signed-in users.
+              <br />
+              <button className="lock-cta" onClick={() => setLockOpen(true)}>
+                Sign in to unlock
+              </button>
+            </div>
           </ResultCard>
 
           <ResultCard title="Topics">
@@ -408,6 +519,28 @@ export default function Home() {
           </ResultCard>
         </div>
       </section>
+
+      {lockOpen && (
+        <div
+          className="modal-backdrop"
+          onClick={() => setLockOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Sign in"
+        >
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Accounts are coming soon</h2>
+            <p>
+              Sentiment tracking over time needs saved history, which arrives
+              with accounts. Everything else works right now without signing
+              in.
+            </p>
+            <button className="btn-grad" onClick={() => setLockOpen(false)}>
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

@@ -1,5 +1,6 @@
 import "./globals.css";
 import Link from "next/link";
+import AuthButtons from "@/components/AuthButtons";
 
 export const metadata = {
   title: "SocialLens AI — Comment Analysis",
@@ -18,7 +19,7 @@ export default function RootLayout({ children }) {
           crossOrigin="anonymous"
         />
         <link
-          href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap"
+          href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700;800&display=swap"
           rel="stylesheet"
         />
       </head>
@@ -26,14 +27,17 @@ export default function RootLayout({ children }) {
         <header className="site-header">
           <div className="container">
             <Link href="/" className="brand">
-              <span className="brand-mark">SL</span>
+              <span className="brand-mark">◐</span>
               SocialLens AI
             </Link>
-            <nav className="site-nav" aria-label="Main">
-              <Link href="/history">History</Link>
-              <Link href="/pricing">Pricing</Link>
-              <Link href="/billing">Billing</Link>
-            </nav>
+            <div className="header-right">
+              <nav className="site-nav" aria-label="Main">
+                <Link href="/history">History</Link>
+                <Link href="/pricing">Pricing</Link>
+                <Link href="/billing">Billing</Link>
+              </nav>
+              <AuthButtons />
+            </div>
           </div>
         </header>
 

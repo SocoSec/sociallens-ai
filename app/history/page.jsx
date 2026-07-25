@@ -34,7 +34,7 @@ export default function HistoryPage() {
         </p>
       ) : (
         <>
-          <button className="btn btn-secondary" onClick={clearAll}>
+          <button className="btn-secondary" onClick={clearAll}>
             Clear history
           </button>
           <div style={{ marginTop: 16 }}>
@@ -49,23 +49,14 @@ export default function HistoryPage() {
                     <div>{item.summary}…</div>
                   </div>
                   <button
-                    className="btn btn-secondary"
+                    className="btn-secondary"
                     onClick={() => setOpen(open === item.id ? null : item.id)}
                   >
                     {open === item.id ? "Hide" : "View"}
                   </button>
                 </div>
                 {open === item.id && (
-                  <pre
-                    style={{
-                      background: "var(--surface)",
-                      border: "1px solid var(--line)",
-                      borderRadius: 10,
-                      padding: 16,
-                      fontSize: "0.8rem",
-                      overflowX: "auto",
-                    }}
-                  >
+                  <pre className="history-json">
                     {JSON.stringify(item.analysis, null, 2)}
                   </pre>
                 )}
