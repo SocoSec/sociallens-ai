@@ -1,4 +1,5 @@
-# SocialLens AI
+# CommsBrain
+
 
 AI-powered social media comment analysis. Paste a YouTube or Facebook link, raw comments, or a CSV — get an instant summary, sentiment split, topics, keywords, complaints, compliments, common questions, and recommended actions.
 
